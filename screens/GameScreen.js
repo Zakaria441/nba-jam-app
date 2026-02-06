@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function GameScreen({ route, navigation }) {
@@ -7,29 +7,63 @@ function GameScreen({ route, navigation }) {
   
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
-  const [quarter, setQuarter] = useState(1);
-  const [time, setTime] = useState('12:00');
+  
+  // Estado para rastrear puntos por jugador
+  const [playerPoints, setPlayerPoints] = useState({});
 
-  const addPoints = (team, points) => {
-    if (team === 'home') {
+  // Función para añadir puntos a un jugador específico
+  const addPlayerPoints = (playerId, playerName, teamName, teamColor, teamLogo, teamType, points) => {
+    // Actualizar puntos del jugador
+    setPlayerPoints(prev => ({
+      ...prev,
+      [playerId]: (prev[playerId] || 0) + points
+    }));
+
+    // Actualizar marcador del equipo
+    if (teamType === 'home') {
       setHomeScore(homeScore + points);
     } else {
       setAwayScore(awayScore + points);
     }
   };
 
-  const resetGame = () => {
-    setHomeScore(0);
-    setAwayScore(0);
-    setQuarter(1);
-    setTime('12:00');
+  // Función para finalizar el juego
+  const endGame = () => {
+    // Preparar estadísticas de todos los jugadores
+    const allPlayers = [
+      ...homeTeam.players.map(p => ({
+        playerId: `home-${p.id}`,
+        playerName: p.name,
+        teamName: homeTeam.shortName,
+        teamColor: homeTeam.color,
+        teamLogo: homeTeam.logo,
+        points: playerPoints[`home-${p.id}`] || 0
+      })),
+      ...awayTeam.players.map(p => ({
+        playerId: `away-${p.id}`,
+        playerName: p.name,
+        teamName: awayTeam.shortName,
+        teamColor: awayTeam.color,
+        teamLogo: awayTeam.logo,
+        points: playerPoints[`away-${p.id}`] || 0
+      }))
+    ];
+
+    navigation.navigate('Winner', {
+      homeTeam: homeTeam,
+      awayTeam: awayTeam,
+      homeScore: homeScore,
+      awayScore: awayScore,
+      playerStats: allPlayers,
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        {/* Marcador */}
         <View style={styles.scoreboard}>
-          <Text style={styles.gameTitle}>NBA JAM</Text>
+          <Text style={styles.gameTitle}>NBA JAM - EN JUEGO</Text>
           
           <View style={styles.scoreContainer}>
             <View style={[styles.teamScore, { backgroundColor: homeTeam.color }]}>
@@ -42,10 +76,7 @@ function GameScreen({ route, navigation }) {
               <Text style={styles.score}>{homeScore}</Text>
             </View>
 
-            <View style={styles.gameInfo}>
-              <Text style={styles.quarter}>Q{quarter}</Text>
-              <Text style={styles.time}>{time}</Text>
-            </View>
+            <Text style={styles.vs}>VS</Text>
 
             <View style={[styles.teamScore, { backgroundColor: awayTeam.color }]}>
               <Image 
@@ -59,67 +90,132 @@ function GameScreen({ route, navigation }) {
           </View>
         </View>
 
-        <View style={styles.court}>
-          <Text style={styles.courtText}>🏀</Text>
-          <Text style={styles.courtLabel}>CANCHA</Text>
-        </View>
-
-        <View style={styles.controls}>
-          <Text style={styles.controlsTitle}>CONTROLES</Text>
-          
-          <View style={styles.buttonRow}>
-            <View style={styles.teamControls}>
-              <Text style={[styles.controlLabel, { color: homeTeam.color }]}>
-                {homeTeam.shortName}
+        {/* Plantillas de jugadores */}
+        <ScrollView style={styles.playersContainer}>
+          <View style={styles.teamsRow}>
+            {/* Equipo Local */}
+            <View style={styles.teamColumn}>
+              <Text style={[styles.teamHeader, { color: homeTeam.color }]}>
+                {homeTeam.shortName.toUpperCase()}
               </Text>
-              <TouchableOpacity 
-                style={[styles.pointButton, { backgroundColor: homeTeam.color }]}
-                onPress={() => addPoints('home', 2)}
-              >
-                <Text style={styles.pointText}>+2</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.pointButton, { backgroundColor: homeTeam.color }]}
-                onPress={() => addPoints('home', 3)}
-              >
-                <Text style={styles.pointText}>+3</Text>
-              </TouchableOpacity>
+              {homeTeam.players.map((player) => {
+                const playerId = `home-${player.id}`;
+                const points = playerPoints[playerId] || 0;
+                
+                return (
+                  <View key={player.id} style={styles.playerRow}>
+                    <View style={styles.playerInfo}>
+                      <Text style={styles.playerNumber}>#{player.number}</Text>
+                      <Text style={styles.playerName}>{player.name}</Text>
+                      {points > 0 && (
+                        <Text style={styles.playerPoints}>🏀 {points} pts</Text>
+                      )}
+                    </View>
+                    <View style={styles.buttonGroup}>
+                      <TouchableOpacity 
+                        style={[styles.pointButton, { backgroundColor: homeTeam.color }]}
+                        onPress={() => addPlayerPoints(
+                          playerId,
+                          player.name,
+                          homeTeam.shortName,
+                          homeTeam.color,
+                          homeTeam.logo,
+                          'home',
+                          2
+                        )}
+                      >
+                        <Text style={styles.pointButtonText}>+2</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.pointButton, { backgroundColor: homeTeam.color }]}
+                        onPress={() => addPlayerPoints(
+                          playerId,
+                          player.name,
+                          homeTeam.shortName,
+                          homeTeam.color,
+                          homeTeam.logo,
+                          'home',
+                          3
+                        )}
+                      >
+                        <Text style={styles.pointButtonText}>+3</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
 
-            <View style={styles.teamControls}>
-              <Text style={[styles.controlLabel, { color: awayTeam.color }]}>
-                {awayTeam.shortName}
+            {/* Equipo Visitante */}
+            <View style={styles.teamColumn}>
+              <Text style={[styles.teamHeader, { color: awayTeam.color }]}>
+                {awayTeam.shortName.toUpperCase()}
               </Text>
-              <TouchableOpacity 
-                style={[styles.pointButton, { backgroundColor: awayTeam.color }]}
-                onPress={() => addPoints('away', 2)}
-              >
-                <Text style={styles.pointText}>+2</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.pointButton, { backgroundColor: awayTeam.color }]}
-                onPress={() => addPoints('away', 3)}
-              >
-                <Text style={styles.pointText}>+3</Text>
-              </TouchableOpacity>
+              {awayTeam.players.map((player) => {
+                const playerId = `away-${player.id}`;
+                const points = playerPoints[playerId] || 0;
+                
+                return (
+                  <View key={player.id} style={styles.playerRow}>
+                    <View style={styles.playerInfo}>
+                      <Text style={styles.playerNumber}>#{player.number}</Text>
+                      <Text style={styles.playerName}>{player.name}</Text>
+                      {points > 0 && (
+                        <Text style={styles.playerPoints}>🏀 {points} pts</Text>
+                      )}
+                    </View>
+                    <View style={styles.buttonGroup}>
+                      <TouchableOpacity 
+                        style={[styles.pointButton, { backgroundColor: awayTeam.color }]}
+                        onPress={() => addPlayerPoints(
+                          playerId,
+                          player.name,
+                          awayTeam.shortName,
+                          awayTeam.color,
+                          awayTeam.logo,
+                          'away',
+                          2
+                        )}
+                      >
+                        <Text style={styles.pointButtonText}>+2</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.pointButton, { backgroundColor: awayTeam.color }]}
+                        onPress={() => addPlayerPoints(
+                          playerId,
+                          player.name,
+                          awayTeam.shortName,
+                          awayTeam.color,
+                          awayTeam.logo,
+                          'away',
+                          3
+                        )}
+                      >
+                        <Text style={styles.pointButtonText}>+3</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
+        </ScrollView>
 
-          <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.resetButton]}
-              onPress={resetGame}
-            >
-              <Text style={styles.actionButtonText}>🔄 REINICIAR</Text>
-            </TouchableOpacity>
+        {/* Botones de acción */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.endButton]}
+            onPress={endGame}
+          >
+            <Text style={styles.actionButtonText}>🏁 FIN DEL JUEGO</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.backButton]}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.actionButtonText}>⬅️ VOLVER</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.backButton]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.actionButtonText}>⬅️ VOLVER</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -133,7 +229,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'space-between',
   },
   scoreboard: {
     backgroundColor: '#0000AA',
@@ -142,7 +237,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#FFD700',
   },
   gameTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFD700',
     textAlign: 'center',
@@ -180,86 +275,82 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 5,
   },
-  gameInfo: {
-    alignItems: 'center',
-  },
-  quarter: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 5,
-  },
-  time: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  court: {
-    flex: 1,
-    backgroundColor: '#8B4513',
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 10,
-    borderRadius: 10,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-  },
-  courtText: {
-    fontSize: 60,
-    marginBottom: 10,
-  },
-  courtLabel: {
+  vs: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    textShadowColor: '#000',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 1,
-  },
-  controls: {
-    backgroundColor: '#1a1a3e',
-    padding: 15,
-    borderTopWidth: 4,
-    borderTopColor: '#FFD700',
-  },
-  controlsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
     color: '#FFD700',
-    textAlign: 'center',
-    marginBottom: 15,
   },
-  buttonRow: {
+  playersContainer: {
+    flex: 1,
+    backgroundColor: '#1a1a3e',
+  },
+  teamsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
+    padding: 10,
   },
-  teamControls: {
-    alignItems: 'center',
+  teamColumn: {
+    flex: 1,
+    marginHorizontal: 5,
   },
-  controlLabel: {
-    fontSize: 14,
+  teamHeader: {
+    fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+    padding: 8,
+    backgroundColor: '#0000AA',
+    borderRadius: 5,
+  },
+  playerRow: {
+    backgroundColor: '#2a2a4e',
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  playerInfo: {
     marginBottom: 8,
   },
-  pointButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 5,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
+  playerNumber: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFD700',
   },
-  pointText: {
-    fontSize: 20,
+  playerName: {
+    fontSize: 11,
+    color: '#FFFFFF',
+  },
+  playerPoints: {
+    fontSize: 10,
+    color: '#00FF00',
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  pointButton: {
+    flex: 1,
+    paddingVertical: 8,
+    marginHorizontal: 2,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  pointButtonText: {
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    padding: 10,
+    backgroundColor: '#0000AA',
+    borderTopWidth: 4,
+    borderTopColor: '#FFD700',
   },
   actionButton: {
     flex: 1,
@@ -269,11 +360,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  resetButton: {
-    backgroundColor: '#FF6600',
+  endButton: {
+    backgroundColor: '#00AA00',
   },
   backButton: {
-    backgroundColor: '#0000AA',
+    backgroundColor: '#FF0000',
   },
   actionButtonText: {
     fontSize: 14,
